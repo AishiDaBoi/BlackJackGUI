@@ -46,54 +46,54 @@ class BlackjackGUI:
         self.root.attributes('-fullscreen', True)
 
         # Hintergrundfarbe (schwarz zu Beginn)
-        self.root.configure(bg="black")
+        self.root.configure(bg="green")
 
         # GUI-Komponenten
-        self.status_label = tk.Label(root, text="Willkommen bei Blackjack!", font=("Helvetica", 24), bg="black", fg="white")
+        self.status_label = tk.Label(root, text="Willkommen bei Blackjack!", font=("Helvetica", 24), fg="black", bg="green")
         self.status_label.pack(pady=20)
 
         # Spieler-Frame und Anzeige der Karten
-        self.player_frame = tk.Frame(root, bg="black")
+        self.player_frame = tk.Frame(root)
         self.player_frame.pack(side=tk.TOP, pady=10)
-        self.player_label = tk.Label(self.player_frame, text="Deine Karten: ", font=("Helvetica", 14), bg="black", fg="white")
+        self.player_label = tk.Label(self.player_frame, text="Deine Karten: ", font=("Helvetica", 14), fg="black", bg="green")
         self.player_label.pack(side=tk.LEFT)
 
         # Dealer-Frame und Anzeige der Karten
-        self.dealer_frame = tk.Frame(root, bg="black")
+        self.dealer_frame = tk.Frame(root, bg="green")
         self.dealer_frame.pack(side=tk.TOP, pady=10)
-        self.dealer_label = tk.Label(self.dealer_frame, text="Dealer-Karten: ", font=("Helvetica", 14), bg="black", fg="white")
+        self.dealer_label = tk.Label(self.dealer_frame, text="Dealer-Karten: ", font=("Helvetica", 14), fg="black", bg="green")
         self.dealer_label.pack(side=tk.LEFT)
 
         # Anzeige des aktuellen Punktestands
-        self.score_label = tk.Label(root, text="Spieler: 0 | Dealer: 0", font=("Helvetica", 14), bg="black", fg="white")
+        self.score_label = tk.Label(root, text="Spieler: 0 | Dealer: 0", font=("Helvetica", 14), fg="black", bg="green")
         self.score_label.pack(pady=10)
 
         # Anzeige des Guthabens
-        self.money_label = tk.Label(root, text=f"Guthaben: {self.game.player_money}€", font=("Helvetica", 14), bg="black", fg="white")
+        self.money_label = tk.Label(root, text=f"Guthaben: {self.game.player_money}€", font=("Helvetica", 14), fg="black", bg="green")
         self.money_label.pack(pady=10)
 
         # Eingabefeld für den Einsatz
-        self.bet_label = tk.Label(root, text="Setze deinen Einsatz:", font=("Helvetica", 14), bg="black", fg="white")
+        self.bet_label = tk.Label(root, text="Setze deinen Einsatz:", font=("Helvetica", 14), fg="black", bg="green")
         self.bet_label.pack(pady=10)
 
         self.bet_entry = tk.Entry(root, font=("Helvetica", 14))
         self.bet_entry.pack(pady=10)
 
         # Button-Frame für Aktionen
-        self.buttons_frame = tk.Frame(root, bg="black")
+        self.buttons_frame = tk.Frame(root, bg="green")
         self.buttons_frame.pack(side=tk.BOTTOM, pady=20)
 
-        self.set_bet_button = tk.Button(self.buttons_frame, text="Einsatz setzen", command=self.set_bet, font=("Helvetica", 16), bg="white")
+        self.set_bet_button = tk.Button(self.buttons_frame, text="Einsatz setzen", command=self.set_bet, font=("Helvetica", 16), bg="grey")
         self.set_bet_button.pack(side=tk.LEFT, padx=10)
 
-        self.hit_button = tk.Button(self.buttons_frame, text="Karte ziehen", command=self.player_hit, font=("Helvetica", 16), bg="white", state=tk.DISABLED)
+        self.hit_button = tk.Button(self.buttons_frame, text="Karte ziehen", command=self.player_hit, font=("Helvetica", 16), bg="grey", state=tk.DISABLED)
         self.hit_button.pack(side=tk.LEFT, padx=10)
 
-        self.stand_button = tk.Button(self.buttons_frame, text="Halten", command=self.player_stand, font=("Helvetica", 16), bg="white", state=tk.DISABLED)
+        self.stand_button = tk.Button(self.buttons_frame, text="Halten", command=self.player_stand, font=("Helvetica", 16), bg="grey", state=tk.DISABLED)
         self.stand_button.pack(side=tk.LEFT, padx=10)
 
         # Neues Spiel Button (wird erst am Ende der Runde angezeigt)
-        self.new_game_button = tk.Button(self.buttons_frame, text="Neues Spiel", command=self.new_game, font=("Helvetica", 16), bg="green", fg="white", state=tk.DISABLED)
+        self.new_game_button = tk.Button(self.buttons_frame, text="Neues Spiel", command=self.new_game, font=("Helvetica", 16), bg="grey", fg="black", state=tk.DISABLED)
         self.new_game_button.pack(side=tk.LEFT, padx=10)
 
     def update_gui(self):
@@ -110,7 +110,7 @@ class BlackjackGUI:
             img = Image.open(img_path)
             img = img.resize((71, 96))  # Größe der Karten anpassen
             img_tk = ImageTk.PhotoImage(img)
-            label = tk.Label(frame, image=img_tk, bg="black")
+            label = tk.Label(frame, image=img_tk, bg="green")
             label.image = img_tk  # Referenz speichern, damit das Bild nicht gelöscht wird
             label.pack(side=tk.LEFT, padx=5)
 
@@ -153,7 +153,7 @@ class BlackjackGUI:
         self.hit_button.config(state=tk.NORMAL)
         self.stand_button.config(state=tk.NORMAL)
         self.new_game_button.config(state=tk.DISABLED)  # Deaktiviert, bis die Runde endet
-        self.root.configure(bg="black")
+        self.root.configure(bg="green")
         self.update_gui()
 
     def player_hit(self):
@@ -161,7 +161,9 @@ class BlackjackGUI:
         self.update_gui()
         if self.game.player_score > 21:
             self.status_label.config(text="Du hast überzogen! Der Dealer gewinnt.")
-            self.root.configure(bg="red")
+            self.root.configure(bg="green")
+            self.hit_button.config(state=tk.DISABLED)
+            self.stand_button.config(state=tk.DISABLED)
             self.end_round()
 
     def player_stand(self):
@@ -178,11 +180,11 @@ class BlackjackGUI:
             self.game.player_money += self.game.current_bet  # Gewinn: Einsatz zurückbekommen + gewinn
         elif self.game.player_score < self.game.dealer_score:
             self.status_label.config(text="Der Dealer gewinnt!")
-            self.root.configure(bg="red")
+            self.root.configure(bg="green")
             self.game.player_money -= self.game.current_bet  # Verlust: Einsatz verloren
         else:
             self.status_label.config(text="Unentschieden!")
-            self.root.configure(bg="yellow")  # Unentschieden als gelb darstellen
+            self.root.configure(bg="green")  # Unentschieden als gelb darstellen
 
         self.end_round()
 
@@ -219,7 +221,7 @@ class BlackjackGUI:
         self.hit_button.config(state=tk.NORMAL)
         self.stand_button.config(state=tk.NORMAL)
         self.new_game_button.config(state=tk.DISABLED)  # Deaktiviert, bis die Runde endet
-        self.root.configure(bg="black")
+        self.root.configure(bg="green")
         self.update_gui()
 
 # Hauptprogramm
