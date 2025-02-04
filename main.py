@@ -2,6 +2,8 @@ import tkinter as tk
 import random
 from PIL import Image, ImageTk
 import os
+import pygame.mixer
+from pygame.mixer import Sound
 
 # Kartendeck erstellen
 SUITS = ['Herz', 'Karo', 'Pik', 'Kreuz']
@@ -126,10 +128,24 @@ class BlackjackGUI:
             bet = int(bet)
         except ValueError:
             self.status_label.config(text="Ungültiger Einsatz! Bitte eine Zahl eingeben.")
+
+            pygame.mixer.init()
+            pygame.mixer.music.load("sounds/Error.mp3")
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(2)
+
             return
 
         if bet <= 0 or bet > self.game.player_money:
             self.status_label.config(text="Ungültiger Einsatz! Dein Guthaben reicht nicht aus.")
+
+            pygame.mixer.init()
+            pygame.mixer.music.load("sounds/Error.mp3")
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(2)
+
             return
 
         # Einsatz setzen
@@ -164,6 +180,12 @@ class BlackjackGUI:
             self.root.configure(bg="green")
             self.hit_button.config(state=tk.DISABLED)
             self.stand_button.config(state=tk.DISABLED)
+
+            pygame.mixer.init()
+            pygame.mixer.music.load("sounds/Death.mp3")
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(2)
             self.end_round()
 
     def player_stand(self):
@@ -176,14 +198,38 @@ class BlackjackGUI:
         # Gewinner ermitteln
         if self.game.dealer_score > 21 or self.game.player_score > self.game.dealer_score:
             self.status_label.config(text="Du gewinnst!")
+
+            pygame.mixer.init()
+            pygame.mixer.music.load("sounds/Win.mp3")
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(2)
+
+
+
+
             self.root.configure(bg="green")
             self.game.player_money += self.game.current_bet  # Gewinn: Einsatz zurückbekommen + gewinn
         elif self.game.player_score < self.game.dealer_score:
             self.status_label.config(text="Der Dealer gewinnt!")
+
+            pygame.mixer.init()
+            pygame.mixer.music.load("sounds/Death.mp3.mp3")
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(2)
+
             self.root.configure(bg="green")
             self.game.player_money -= self.game.current_bet  # Verlust: Einsatz verloren
         else:
             self.status_label.config(text="Unentschieden!")
+
+            pygame.mixer.init()
+            pygame.mixer.music.load("sounds/Death.mp3.mp3")
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(2)
+
             self.root.configure(bg="green")  # Unentschieden als gelb darstellen
 
         self.end_round()
@@ -203,6 +249,13 @@ class BlackjackGUI:
         # Überprüfen, ob der Einsatz gültig ist
         if bet <= 0 or bet > self.game.player_money:
             self.status_label.config(text="Ungültiger Einsatz!")
+
+
+            pygame.mixer.music.load("sounds/Error.mp3")
+            pygame.mixer.music.play()
+            while pygame.mixer.music.get_busy():
+                pygame.time.Clock().tick(2)
+
             return
 
         # Einsatz setzen
