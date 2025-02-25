@@ -24,7 +24,6 @@ class BlackjackGame:
         self.player_money = 1000
         self.current_bet = 0
 
-
     def draw_card(self, hand):
         if self.deck:
             hand.append(self.deck.pop())
@@ -40,6 +39,7 @@ class BlackjackGame:
 
 def play_tie_sound():
     pass
+
 
 def play_error_sound():
     pygame.mixer.music.load("sounds/Error.mp3")
@@ -107,9 +107,6 @@ class BlackjackGUI:
         self.new_game_button = tk.Button(self.buttons_frame, text="Neues Spiel", command=self.new_game,
                                          font=("Helvetica", 16), bg="grey", fg="black", state=tk.DISABLED)
         self.new_game_button.pack(side=tk.LEFT, padx=10)
-
-
-
 
     def update_gui(self):
         self.status_label.config(text="Neue Runde neues Glück!")
@@ -198,11 +195,10 @@ class BlackjackGUI:
             self.game.player_money += self.game.current_bet  # Einsatz zurück
             self.set_bet_button.config(state=tk.DISABLED)
             play_tie_sound()
-            
+
         self.hit_button.config(state=tk.DISABLED)
         self.stand_button.config(state=tk.DISABLED)
         self.new_game_button.config(state=tk.NORMAL)
-
 
     def new_game(self):
 
@@ -228,8 +224,6 @@ class BlackjackGUI:
             self.hit_button.config(state=tk.DISABLED)
             self.stand_button.config(state=tk.DISABLED)
             self.new_game_button.config(state=tk.DISABLED)
-
-
 
 
 # Hauptprogramm
