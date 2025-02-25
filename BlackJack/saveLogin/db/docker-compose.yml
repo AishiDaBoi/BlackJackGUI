@@ -1,0 +1,30 @@
+services:
+  mysql:
+    image: mysql:latest
+    container_name: mysql_db_blackjack_login_data_python
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: blackjack
+      MYSQL_DATABASE: blackjack
+      MYSQL_USER: blackjack
+      MYSQL_PASSWORD: blackjack
+    ports:
+      - "3307:3306"  # Falls 3306 bereits belegt ist, kann es auf 3307 gemappt werden
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin_blackjack_python
+    restart: always
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: blackjack
+      PMA_PASSWORD: blackjack  # Korrigierter Root-Login für phpMyAdmin
+    ports:
+      - "8081:80"  # Falls 8080 belegt ist, kann es auf 8081 gemappt werden
+    depends_on:
+      - mysql
+
+volumes:
+  mysql_data:
