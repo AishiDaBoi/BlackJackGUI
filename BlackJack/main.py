@@ -38,6 +38,24 @@ class BlackjackGame:
         return score
 
 
+def play_tie_sound():
+    pass
+
+def play_error_sound():
+    pygame.mixer.music.load("sounds/Error.mp3")
+    pygame.mixer.music.play()
+
+
+def play_winning_sound():
+    pygame.mixer.music.load("sounds/Win.mp3")
+    pygame.mixer.music.play()
+
+
+def play_lose_sound():
+    pygame.mixer.music.load("sounds/Death.mp3")
+    pygame.mixer.music.play()
+
+
 class BlackjackGUI:
     def __init__(self, root):
         pygame.mixer.init()
@@ -90,10 +108,15 @@ class BlackjackGUI:
                                          font=("Helvetica", 16), bg="grey", fg="black", state=tk.DISABLED)
         self.new_game_button.pack(side=tk.LEFT, padx=10)
 
+
+
+
     def update_gui(self):
+        self.status_label.config(text="Neue Runde neues Glück!")
         self.display_cards(self.game.player_hand, self.player_frame)
         self.display_cards(self.game.dealer_hand, self.dealer_frame)
         self.update_score()
+        self.set_bet_button.config(state=tk.DISABLED)
 
     def display_cards(self, hand, frame):
         for widget in frame.winfo_children():
@@ -114,16 +137,18 @@ class BlackjackGUI:
         self.money_label.config(text=f"Guthaben: {self.game.player_money}")
 
     def set_bet(self):
+        """ Setzt den Einsatz und startet eine neue Runde. """
+        self.set_bet_button.config(state=tk.NORMAL)
         try:
             bet = int(self.bet_entry.get())
-            if bet > 0 and bet <= self.game.player_money:
+            if 0 < bet <= self.game.player_money:
                 self.game.current_bet = bet
                 self.game.player_money -= bet
                 self.start_round()
             else:
-                self.play_sound("sounds/Error.mp3")
+                play_error_sound()
         except ValueError:
-            self.play_sound("sounds/Error.mp3")
+            play_error_sound()
 
     def start_round(self):
         self.game.player_hand.clear()
@@ -147,6 +172,8 @@ class BlackjackGUI:
             self.hit_button.config(state=tk.DISABLED)
             self.stand_button.config(state=tk.DISABLED)
             self.new_game_button.config(state=tk.NORMAL)
+            self.set_bet_button.config(state=tk.DISABLED)
+            play_lose_sound()
 
     def player_stand(self):
         """ Der Spieler bleibt stehen, der Dealer ist am Zug. """
@@ -159,18 +186,26 @@ class BlackjackGUI:
 
         if dealer_score > 21 or player_score > dealer_score:
             self.status_label.config(text="Spieler gewinnt!")
+            self.set_bet_button.config(state=tk.DISABLED)
+            play_winning_sound()
             self.game.player_money += self.game.current_bet * 2  # Verdoppelter Gewinn
         elif player_score < dealer_score:
             self.status_label.config(text="Dealer gewinnt!")
+            self.set_bet_button.config(state=tk.DISABLED)
+            play_lose_sound()
         else:
             self.status_label.config(text="Unentschieden!")
             self.game.player_money += self.game.current_bet  # Einsatz zurück
-
+            self.set_bet_button.config(state=tk.DISABLED)
+            play_tie_sound()
+            
         self.hit_button.config(state=tk.DISABLED)
         self.stand_button.config(state=tk.DISABLED)
         self.new_game_button.config(state=tk.NORMAL)
 
+
     def new_game(self):
+
         """ Startet eine neue Runde ohne Guthaben zurückzusetzen. """
         self.game.deck = create_deck()  # Neues Deck erstellen
         random.shuffle(self.game.deck)
@@ -179,15 +214,22 @@ class BlackjackGUI:
         self.game.current_bet = 0  # Einsatz zurücksetzen
 
         self.update_gui()
-        self.status_label.config(text="Neues Spiel gestartet! Setze deinen Einsatz.")
-        self.hit_button.config(state=tk.DISABLED)
-        self.stand_button.config(state=tk.DISABLED)
-        self.new_game_button.config(state=tk.DISABLED)
+        self.set_bet_button.config(state=tk.NORMAL)
 
-    def play_sound(self, file):
-        """ Spielt einen Soundeffekt ab. """
-        pygame.mixer.music.load(file)
-        pygame.mixer.music.play()
+        if self.game.player_money <= 0:
+            play_lose_sound()
+            self.status_label.config(text="Du hast kein Guthaben mehr! Spiel beendet.")
+            self.hit_button.config(state=tk.DISABLED)
+            self.stand_button.config(state=tk.DISABLED)
+            self.new_game_button.config(state=tk.DISABLED)
+            self.set_bet_button.config(state=tk.DISABLED)
+        else:
+            self.status_label.config(text="Neues Spiel gestartet! Setze deinen Einsatz.")
+            self.hit_button.config(state=tk.DISABLED)
+            self.stand_button.config(state=tk.DISABLED)
+            self.new_game_button.config(state=tk.DISABLED)
+
+
 
 
 # Hauptprogramm
