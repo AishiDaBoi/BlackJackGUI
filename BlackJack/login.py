@@ -1,70 +1,68 @@
 import tkinter as tk
 from tkinter import messagebox
-from auth import register_user, login_user
-
+from loginViaJson import login, register  # Neue Login/Registrierung aus JSON & DB
 
 class LoginWindow:
     def __init__(self, master, on_success):
         """
-        Initializes the login and registration window.
+        Erstellt das Login- und Registrierungsfenster.
 
         Args:
-            master (tk.Tk): The root window for the application.
-            on_success (function): Callback function executed after successful login.
+            master (tk.Tk): Das Hauptfenster der Anwendung.
+            on_success (function): Callback-Funktion nach erfolgreichem Login.
         """
         self.master = master
-        self.on_success = on_success  # Callback for successful login
-        master.title("Login / Registration")
+        self.on_success = on_success  # Callback nach erfolgreichem Login
+        self.use_json = tk.BooleanVar(value=False)  # Standard: Datenbank-Login
+
+        master.title("Login / Registrierung")
         master.geometry("600x400")
         master.configure(bg="green")
 
-        self.label_title = tk.Label(master, text="Welcome to Blackjack",
-                                    font=("Helvetica", 20), bg="green")
-        self.label_title.pack(pady=20)
+        tk.Label(master, text="Willkommen bei Blackjack", font=("Helvetica", 20), bg="green").pack(pady=20)
 
-        self.label_username = tk.Label(master, text="Username:",
-                                       font=("Helvetica", 14), bg="green")
-        self.label_username.pack(pady=5)
+        tk.Label(master, text="Username:", font=("Helvetica", 14), bg="green").pack(pady=5)
         self.entry_username = tk.Entry(master, font=("Helvetica", 14))
         self.entry_username.pack(pady=5)
 
-        self.label_password = tk.Label(master, text="Password:",
-                                       font=("Helvetica", 14), bg="green")
-        self.label_password.pack(pady=5)
+        tk.Label(master, text="Password:", font=("Helvetica", 14), bg="green").pack(pady=5)
         self.entry_password = tk.Entry(master, font=("Helvetica", 14), show="*")
         self.entry_password.pack(pady=5)
 
-        self.button_login = tk.Button(master, text="Login",
-                                      font=("Helvetica", 14), command=self.login)
-        self.button_login.pack(pady=10)
-        self.button_register = tk.Button(master, text="Register",
-                                         font=("Helvetica", 14), command=self.register)
-        self.button_register.pack(pady=10)
+        # Auswahl, ob JSON oder Datenbank genutzt wird
+        self.json_checkbox = tk.Checkbutton(master, text="JSON statt Datenbank nutzen",
+                                            variable=self.use_json, bg="green", font=("Helvetica", 12))
+        self.json_checkbox.pack(pady=5)
+
+        tk.Button(master, text="Login", font=("Helvetica", 14), command=self.login).pack(pady=10)
+        tk.Button(master, text="Registrieren", font=("Helvetica", 14), command=self.register).pack(pady=10)
 
     def login(self):
-        """Handles user login. Validates input fields and checks credentials."""
+        """Verarbeitet das Login-Event."""
         username = self.entry_username.get().strip()
         password = self.entry_password.get().strip()
 
         if not username or not password:
-            messagebox.showerror("Error", "Please fill in both fields!")
+            messagebox.showerror("Fehler", "Bitte beide Felder ausfüllen!")
             return
 
-        if login_user(username, password):
-            messagebox.showinfo("Success", "Login successful!")
-            self.master.destroy()  # Close login window
-            self.on_success(username)  # Call the callback with username
+        if login(username, password, self.use_json.get()):
+            messagebox.showinfo("Erfolg", "Login erfolgreich!")
+            self.master.destroy()  # Fenster schließen
+            self.on_success(username)  # Callback aufrufen
         else:
-            messagebox.showerror("Error", "Incorrect login credentials!")
+            messagebox.showerror("Fehler", "Falsche Anmeldeinformationen!")
 
     def register(self):
-        """Handles user registration. Validates input fields and creates a new account."""
+        """Verarbeitet das Registrierungs-Event."""
         username = self.entry_username.get().strip()
         password = self.entry_password.get().strip()
 
         if not username or not password:
-            messagebox.showerror("Error", "Please fill in both fields!")
+            messagebox.showerror("Fehler", "Bitte beide Felder ausfüllen!")
             return
 
-        register_user(username, password)
-        messagebox.showinfo("Registration", "User registered successfully! Please log in.")
+        if register(username, password, self.use_json.get()):
+            messagebox.showinfo("Erfolg", "Registrierung erfolgreich! Bitte einloggen.")
+        else:
+            messagebox.showerror("Fehler", "Benutzername bereits vergeben!")
