@@ -7,6 +7,25 @@ from src.game.betting import BettingSystem
 from src.game.stats import get_highscore, update_highscore, get_balance, update_balance
 
 
+def calculate_hand_value(hand):
+    value = 0
+    aces = 0
+    for card in hand:
+        if card['rank'] in ['Bube', 'Dame', 'König']:
+            value += 10
+        elif card['rank'] == 'Ass':
+            value += 11
+            aces += 1
+        else:
+            value += int(card['rank'])
+
+    # Reduziere Asser von 11 auf 1, wenn der Wert über 21 liegt
+    while value > 21 and aces > 0:
+        value -= 10
+        aces -= 1
+    return value
+
+
 class BlackjackGame:
     def __init__(self, master, username):
         self.master = master
@@ -63,29 +82,18 @@ class BlackjackGame:
         if self.deck.cards:
             card = self.deck.draw_card()
             hand.append(card)
-            img = self.load_card_image(card)
+            if face_up:
+                img = self.load_card_image(card)
+            else:
+                img = self.load_card_image({'suit': 'cardback', 'rank': 'back'})  # Verdeckte Karte
             if img:
+                print(f"Zeichne Karte {card} an Position ({x}, {y})")  # Debugging-Ausgabe
                 self.canvas.create_image(x, y, image=img, anchor=tk.NW)
                 self.master.update()
+            else:
+                print(f"Fehler: Bild für Karte {card} konnte nicht geladen werden!")
         else:
             print("Fehler: Keine Karten mehr im Deck!")
-
-    def calculate_hand_value(self, hand):
-        """Berechnet den Wert einer Hand."""
-        value = 0
-        aces = 0
-        for card in hand:
-            if card['rank'] in ['Bube', 'Dame', 'König']:
-                value += 10
-            elif card['rank'] == 'Ass':
-                value += 11
-                aces += 1
-            else:
-                value += int(card['rank'])
-        while value > 21 and aces:
-            value -= 10
-            aces -= 1
-        return value
 
     def start_round(self):
         """Startet eine neue Runde."""
@@ -102,8 +110,24 @@ class BlackjackGame:
         # Karten austeilen
         self.draw_card(self.player_hand, 100, 400)  # Erste Karte für den Spieler
         self.draw_card(self.player_hand, 220, 400)  # Zweite Karte für den Spieler
-        self.draw_card(self.dealer_hand, 100, 100, face_up=True)   # Erste Karte für den Dealer (aufgedeckt)
-        self.draw_card(self.dealer_hand, 220, 100, face_up=False)   # Zweite Karte für den Dealer (verdeckt)
+        self.draw_card(self.dealer_hand, 100, 100, face_up=True)  # Erste Karte für den Dealer (aufgedeckt)
+        self.draw_card(self.dealer_hand, 220, 100, face_up=False)  # Zweite Karte für den Dealer (verdeckt)
+
+        # Überprüfe, ob der Dealer einen Blackjack hat
+        dealer_value = calculate_hand_value(self.dealer_hand)
+        if dealer_value == 21:
+            # Decke die verdeckte Karte des Dealers auf
+            self.canvas.delete("all")
+            for i, card in enumerate(self.dealer_hand):
+                self.draw_card(self.dealer_hand, 100 + i * 120, 100, face_up=True)
+
+            # Überprüfe, ob der Spieler auch einen Blackjack hat
+            player_value = calculate_hand_value(self.player_hand)
+            if player_value == 21:
+                self.end_round("It's a tie!")  # Unentschieden
+            else:
+                self.end_round("Dealer wins with Blackjack!")  # Dealer gewinnt mit Blackjack
+            return
 
         # Aktiviere Buttons
         self.hit_button.config(state=tk.NORMAL)
@@ -111,7 +135,6 @@ class BlackjackGame:
         self.double_button.config(state=tk.NORMAL)
         self.surrender_button.config(state=tk.NORMAL)
         self.new_round_button.config(state=tk.DISABLED)
-
     def place_bet(self):
         """Fragt den Spieler nach dem Einsatz."""
         while True:
@@ -126,43 +149,50 @@ class BlackjackGame:
 
     def setup_gui(self):
         """Erstellt das GUI für das Spiel."""
-        self.canvas = tk.Canvas(self.master, width=self.master.winfo_width(), height=self.master.winfo_height(), bg="green", highlightthickness=0)
+        self.canvas = tk.Canvas(self.master, width=1200, height=800, bg="green", highlightthickness=0)
         self.canvas.pack()
 
         # Buttons mit größerer Schrift und Abmessungen
         button_width = 15
         button_font = ("Helvetica", 18)
         self.hit_button = tk.Button(self.master, text="Hit", font=button_font, width=button_width, command=self.hit)
-        self.hit_button.place(x=50, y=550)
+        self.hit_button.place(x=50, y=650)
 
-        self.stand_button = tk.Button(self.master, text="Stand", font=button_font, width=button_width, command=self.stand)
-        self.stand_button.place(x=300, y=550)
+        self.stand_button = tk.Button(self.master, text="Stand", font=button_font, width=button_width,
+                                      command=self.stand)
+        self.stand_button.place(x=300, y=650)
 
-        self.double_button = tk.Button(self.master, text="Double", font=button_font, width=button_width, command=self.double)
-        self.double_button.place(x=550, y=550)
+        self.double_button = tk.Button(self.master, text="Double", font=button_font, width=button_width,
+                                       command=self.double)
+        self.double_button.place(x=550, y=650)
 
-        self.surrender_button = tk.Button(self.master, text="Surrender", font=button_font, width=button_width, command=self.surrender)
-        self.surrender_button.place(x=800, y=550)
+        self.surrender_button = tk.Button(self.master, text="Surrender", font=button_font, width=button_width,
+                                          command=self.surrender)
+        self.surrender_button.place(x=800, y=650)
 
-        self.new_round_button = tk.Button(self.master, text="Neue Runde", font=button_font, width=button_width, command=self.start_round)
-        self.new_round_button.place(x=1050, y=550)
+        self.new_round_button = tk.Button(self.master, text="Neue Runde", font=button_font, width=button_width,
+                                          command=self.start_round)
+        self.new_round_button.place(x=1050, y=650)
 
         # Labels mit größerer Schrift
         label_font = ("Helvetica", 20)
-        self.player_label = tk.Label(self.master, text=f"Spieler: {self.username}", font=label_font, bg="green", fg="white")
+        self.player_label = tk.Label(self.master, text=f"Spieler: {self.username}", font=label_font, bg="green",
+                                     fg="white")
         self.player_label.place(x=50, y=20)
 
-        self.balance_label = tk.Label(self.master, text=f"Guthaben: {self.betting.balance}", font=label_font, bg="green", fg="white")
+        self.balance_label = tk.Label(self.master, text=f"Guthaben: {self.betting.balance}", font=label_font,
+                                      bg="green", fg="white")
         self.balance_label.place(x=50, y=60)
 
-        self.highscore_label = tk.Label(self.master, text=f"Highscore: {self.highscore_value}", font=label_font, bg="green", fg="white")
+        self.highscore_label = tk.Label(self.master, text=f"Highscore: {self.highscore_value}", font=label_font,
+                                        bg="green", fg="white")
         self.highscore_label.place(x=50, y=100)
 
     def hit(self):
         """Zieht eine zusätzliche Karte für den Spieler."""
         if len(self.player_hand) < 5:  # Begrenze die Anzahl der Karten auf 5
             self.draw_card(self.player_hand, 100 + len(self.player_hand) * 120, 400)
-            player_value = self.calculate_hand_value(self.player_hand)
+            player_value = calculate_hand_value(self.player_hand)
             if player_value > 21:
                 self.end_round("Dealer wins!")
 
@@ -173,9 +203,29 @@ class BlackjackGame:
         for i, card in enumerate(self.dealer_hand):
             self.draw_card(self.dealer_hand, 100 + i * 120, 100, face_up=True)
 
+        # Dealer-Wert berechnen
+        dealer_value = calculate_hand_value(self.dealer_hand)
+        print(f"[DEBUG] Dealer-Wert vor dem Ziehen: {dealer_value}")
+
         # Dealer zieht Karten, bis er mindestens 17 Punkte hat
-        while self.calculate_hand_value(self.dealer_hand) < 17:
-            self.draw_card(self.dealer_hand, 100 + len(self.dealer_hand) * 120, 100, face_up=True)
+        while dealer_value < 17:
+            if not self.deck.cards:
+                print("[ERROR] Keine Karten mehr im Deck!")
+                break
+
+            # Neue Karte ziehen und dem Dealer hinzufügen
+            new_card = self.deck.draw_card()
+            if new_card is None:
+                break
+
+            self.dealer_hand.append(new_card)
+            self.draw_card(self.dealer_hand, 100 + (len(self.dealer_hand) - 1) * 120, 100, face_up=True)
+
+            # Dealer-Wert NEU berechnen
+            dealer_value = calculate_hand_value(self.dealer_hand)
+            print(f"[DEBUG] Dealer zieht {new_card['rank']} {new_card['suit']}. Neuer Wert: {dealer_value}")
+
+        # Runde beenden
         self.end_round()
 
     def double(self):
@@ -194,8 +244,8 @@ class BlackjackGame:
     def end_round(self, result=None):
         """Beendet die Runde und zeigt das Ergebnis an."""
         if not result:
-            player_value = self.calculate_hand_value(self.player_hand)
-            dealer_value = self.calculate_hand_value(self.dealer_hand)
+            player_value = calculate_hand_value(self.player_hand)
+            dealer_value = calculate_hand_value(self.dealer_hand)
             if player_value > 21:
                 result = "Dealer wins!"
             elif dealer_value > 21:
