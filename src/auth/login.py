@@ -4,6 +4,10 @@ from tkinter import messagebox
 from .auth import login_user, register_user
 from .loginViaJson import login_user_json, register_user_json
 
+
+
+
+
 class LoginWindow:
     def __init__(self, master, on_success):
         self.master = master
@@ -11,24 +15,36 @@ class LoginWindow:
         self.use_json = tk.BooleanVar(value=False)
 
         master.title("Login / Registrierung")
-        master.geometry("600x400")
+        master.geometry("600x450")
         master.configure(bg="green")
 
         tk.Label(master, text="Willkommen bei Blackjack", font=("Helvetica", 20), bg="green").pack(pady=20)
 
         tk.Label(master, text="Username:", font=("Helvetica", 14), bg="green").pack(pady=5)
-        self.entry_username = tk.Entry(master, font=("Helvetica", 14))
+        self.entry_username = tk.Entry(master, font=("Helvetica", 14), bg="lightgreen")
         self.entry_username.pack(pady=5)
 
+
         tk.Label(master, text="Password:", font=("Helvetica", 14), bg="green").pack(pady=5)
-        self.entry_password = tk.Entry(master, font=("Helvetica", 14), show="*")
+        self.entry_password = tk.Entry(master, font=("Helvetica", 14), show="*", bg="lightgreen")
         self.entry_password.pack(pady=5)
+
 
         self.json_checkbox = tk.Checkbutton(master, text="JSON statt MySQL nutzen", variable=self.use_json, bg="green", font=("Helvetica", 12))
         self.json_checkbox.pack(pady=5)
 
+        self.useDefault = tk.Checkbutton(master, text="Standard Benutzer verwenden", command=self.useDefaultUser, bg="green", font=("Helvetica", 12))
+
+        self.useDefault.pack(pady=5)
+
         tk.Button(master, text="Login", font=("Helvetica", 14), command=self.login).pack(pady=10)
         tk.Button(master, text="Registrieren", font=("Helvetica", 14), command=self.register).pack(pady=10)
+
+    def useDefaultUser(self):
+        self.entry_username.delete(0, tk.END)
+        self.entry_username.insert(0, "Test User")
+        self.entry_password.delete(0, tk.END)
+        self.entry_password.insert(0, "1234")
 
     def login(self):
         username = self.entry_username.get().strip()
