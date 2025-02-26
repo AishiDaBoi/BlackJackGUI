@@ -1,8 +1,11 @@
-import json
-import bcrypt
+import logging
 import os
+import json
 
 JSON_FILE = "users.json"
+
+
+logging.basicConfig(level=logging.INFO)
 
 def load_users():
     """Lädt Benutzer aus JSON-Datei."""
@@ -12,13 +15,20 @@ def load_users():
         with open(JSON_FILE, "r") as file:
             data = json.load(file)
             return data
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as err:
+        logging.error(f"Fehler beim Laden der JSON-Datei: {err}")
+        return {}
+    except Exception as err:
+        logging.error(f"Unerwarteter Fehler: {err}")
         return {}
 
 def save_users(users):
     """Speichert Benutzer in JSON-Datei."""
-    with open(JSON_FILE, "w") as file:
-        json.dump(users, file, indent=4)
+    try:
+        with open(JSON_FILE, "w") as file:
+            json.dump(users, file, indent=4)
+    except Exception as err:
+        logging.error(f"Fehler beim Speichern der JSON-Datei: {err}")
 
 def register_user_json(username, password):
     """Registriert Benutzer in JSON."""

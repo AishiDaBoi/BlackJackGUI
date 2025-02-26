@@ -1,8 +1,8 @@
 import tkinter as tk
 from tkinter import messagebox
 
-from .auth import login_user, register_user
-from .loginViaJson import login_user_json, register_user_json
+from src.auth.auth import login_user, register_user
+from src.auth.loginViaJson import login_user_json, register_user_json
 
 
 
@@ -46,6 +46,14 @@ class LoginWindow:
         self.entry_password.delete(0, tk.END)
         self.entry_password.insert(0, "1234")
 
+    def validate_credentials(self, username, password):
+        """Überprüft, ob Benutzername und Passwort den Anforderungen entsprechen."""
+        if len(username) < 3:
+            return "Benutzername muss mindestens 3 Zeichen lang sein!"
+        if len(password) < 4:
+            return "Passwort muss mindestens 4 Zeichen lang sein!"
+        return None
+
     def login(self):
         username = self.entry_username.get().strip()
         password = self.entry_password.get().strip()
@@ -56,9 +64,7 @@ class LoginWindow:
             return
 
         if (login_user_json(username, password) if use_json else login_user(username, password)):
-            messagebox.showinfo("Erfolg", "Login erfolgreich!")
-            self.master.destroy()
-            self.on_success(username)
+            self.on_success(username, self.master)  # Übergebe das Login-Fenster
         else:
             messagebox.showerror("Fehler", "Falsche Anmeldeinformationen!")
 

@@ -1,4 +1,5 @@
-from ..auth.database import get_db_connection
+from src.auth.database import get_db_connection
+
 
 def get_balance(username):
     """Holt das aktuelle Guthaben eines Spielers aus der Datenbank."""
