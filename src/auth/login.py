@@ -1,4 +1,8 @@
+from kivy.clock import Clock
+from kivy.core.window import Window
+from kivy.uix.progressbar import ProgressBar
 from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.anchorlayout import AnchorLayout
 from kivy.uix.label import Label
 from kivy.uix.textinput import TextInput
 from kivy.uix.button import Button
@@ -15,66 +19,145 @@ class LoginWindow(Screen):
         self.on_success = on_success
         self.use_json = False
 
-        # Hauptlayout
-        self.layout = BoxLayout(orientation='vertical', padding=20, spacing=15)
+        # Hauptlayout zentrieren & begrenzen
+        self.layout = BoxLayout(
+            orientation='vertical',
+            padding=20,
+            spacing=15,
+            size_hint=(None, None),
+            width=400,
+            height=500,
+            pos_hint={'center_x': 0.5, 'center_y': 0.5}
+        )
         self.layout.bind(size=self._update_background)
 
-        # Hintergrundfarbe
-        with self.layout.canvas.before:
-            Color(0, 0.5, 0, 1)  # Dunkelgrün
-            self.background = Rectangle(pos=self.layout.pos, size=self.layout.size)
+        # Hintergrundfarbe (für den gesamten Screen)
+        with self.canvas.before:
+            self.bg_color = Color(0, 0.5, 0, 1)  # Dunkelgrün
+            self.background = Rectangle(size=self.size, pos=self.pos)
+        self.bind(size=self._update_background, pos=self._update_background)
 
         # Titel
-        self.layout.add_widget(Label(text="Willkommen bei Blackjack", font_size=26, bold=True, color=(1, 1, 1, 1)))
+        self.layout.add_widget(Label(
+            text="Willkommen bei Blackjack",
+            font_size=26,
+            bold=True,
+            color=(1, 1, 1, 1),
+            size_hint_y=None,
+            height=40
+        ))
 
         # Eingabefelder
-        self.entry_username = self.create_input_field("Benutzername:")
-        self.entry_password = self.create_input_field("Passwort:", password=True)
+        username_box, self.entry_username = self.create_input_field("Benutzername:")
+        password_box, self.entry_password = self.create_input_field("Passwort:", password=True)
+        self.layout.add_widget(username_box)
+        self.layout.add_widget(password_box)
+
+        # Binde Textänderungen, um den Button-Zustand zu prüfen
+        self.entry_username.bind(text=self.check_text_fields)
+        self.entry_password.bind(text=self.check_text_fields)
 
         # JSON-Checkbox
-        self.json_checkbox = self.create_checkbox("JSON statt MySQL nutzen", self.on_json_checkbox_active)
+        self.layout.add_widget(self.create_checkbox("JSON statt MySQL nutzen", self.on_json_checkbox_active))
 
         # Standard-Benutzer-Button
-        self.default_user_button = Button(text="Standard-Benutzer verwenden", font_size=16, size_hint=(1, 0.2))
+        self.default_user_button = Button(
+            text="Standard-Benutzer verwenden",
+            font_size=16,
+            size_hint=(0.8, None),
+            height=50
+        )
         self.default_user_button.bind(on_press=self.use_default_user)
         self.layout.add_widget(self.default_user_button)
 
-        # Buttons (Login & Registrierung)
-        self.layout.add_widget(self.create_button("Login", self.login))
-        self.layout.add_widget(self.create_button("Registrieren", self.register))
+        # Buttons (Login & Registrierung) mit Hover-Effekt
+        # Zunächst deaktiviert und grau
+        self.login_button = self.create_button("Login", self.login)
+        self.register_button = self.create_button("Registrieren", self.register)
+        self.login_button.disabled = True
+        self.register_button.disabled = True
+        self.login_button.background_color = (0.5, 0.5, 0.5, 1)
+        self.register_button.background_color = (0.5, 0.5, 0.5, 1)
+        self.layout.add_widget(self.login_button)
+        self.layout.add_widget(self.register_button)
 
         self.add_widget(self.layout)
 
+        # Lade-Overlay: Ein AnchorLayout zentriert seinen Inhalt (Progressbar und Label)
+        self.loading_overlay = AnchorLayout(
+            size_hint=(1, 1),
+            pos_hint={'center_x': 0.5, 'center_y': 0.5},
+            opacity=0  # zunächst unsichtbar
+        )
+        # Inneres Layout für Ladeanzeige
+        loading_box = BoxLayout(
+            orientation='vertical',
+            padding=20,
+            spacing=20,
+            size_hint=(None, None),
+            width=300,
+            height=150
+        )
+        self.loading_label = Label(
+            text="Lädt...",
+            font_size=24,
+            color=(1, 1, 1, 1),
+            size_hint=(1, None),
+            height=50
+        )
+        self.progress_bar = ProgressBar(max=100, value=0, size_hint=(1, None), height=30)
+        loading_box.add_widget(self.loading_label)
+        loading_box.add_widget(self.progress_bar)
+        self.loading_overlay.add_widget(loading_box)
+        self.add_widget(self.loading_overlay)
+
+        # Hover-Handling aktivieren
+        Window.bind(mouse_pos=self.on_hover)
+
     def create_input_field(self, label_text, password=False):
-        """Erstellt ein Label und ein Eingabefeld."""
-        box = BoxLayout(orientation='vertical', size_hint=(1, 0.2), spacing=5)
-        box.add_widget(Label(text=label_text, font_size=18, color=(1, 1, 1, 1)))
-        input_field = TextInput(hint_text=label_text, font_size=18, password=password)
+        """Erstellt ein zentriertes Eingabefeld mit Label."""
+        box = BoxLayout(orientation='vertical', size_hint=(1, None), height=80, spacing=5)
+        label = Label(text=label_text, font_size=18, color=(1, 1, 1, 1),
+                      size_hint_y=None, height=30)
+        input_field = TextInput(
+            hint_text=label_text,
+            font_size=18,
+            password=password,
+            size_hint=(1, None),
+            height=50
+        )
+        box.add_widget(label)
         box.add_widget(input_field)
-        self.layout.add_widget(box)
-        return input_field
+        return box, input_field
 
     def create_checkbox(self, label_text, callback):
         """Erstellt eine Checkbox mit Label."""
-        box = BoxLayout(orientation='horizontal', size_hint=(1, 0.1), spacing=10)
-        label = Label(text=label_text, font_size=14, color=(1, 1, 1, 1))
-        checkbox = CheckBox(size_hint=(0.2, 1))
+        box = BoxLayout(orientation='horizontal', size_hint=(1, None), height=40, spacing=10)
+        label = Label(text=label_text, font_size=14, color=(1, 1, 1, 1),
+                      size_hint_x=0.8)
+        checkbox = CheckBox(size_hint_x=0.2)
         checkbox.bind(active=callback)
         box.add_widget(label)
         box.add_widget(checkbox)
-        self.layout.add_widget(box)
-        return checkbox
+        return box
 
     def create_button(self, text, callback):
-        """Erstellt einen Button mit einer Aktion."""
-        button = Button(text=text, font_size=18, size_hint=(1, 0.2))
+        """Erstellt einen Button mit Hover-Effekt."""
+        button = Button(
+            text=text,
+            font_size=18,
+            size_hint=(0.8, None),
+            height=50,
+            background_color=(0, 0.7, 0, 1)  # Standard-Grün, wird bei aktivem Zustand verwendet
+        )
         button.bind(on_press=callback)
+        button.hovered = False  # Zum Tracking des Hover-Zustands
         return button
 
     def _update_background(self, instance, value):
-        """Aktualisiert die Hintergrundgröße."""
-        self.background.pos = instance.pos
-        self.background.size = instance.size
+        """Aktualisiert die Hintergrundgröße und -position."""
+        self.background.pos = self.pos
+        self.background.size = self.size
 
     def on_json_checkbox_active(self, instance, value):
         """Schaltet zwischen JSON- und MySQL-Login um."""
@@ -82,32 +165,100 @@ class LoginWindow(Screen):
 
     def use_default_user(self, instance):
         """Setzt Standard-Benutzerdaten ein."""
-        self.entry_username.text = "TestUser"
+        self.entry_username.text = "Test User"
         self.entry_password.text = "1234"
 
+    def on_hover(self, window, pos):
+        """Ändert die Button-Farbe beim Hover."""
+        for button in [self.login_button, self.register_button]:
+            if button.collide_point(*button.to_widget(*pos)):
+                if not button.hovered:
+                    button.hovered = True
+                    # Wenn beide Felder gefüllt sind, soll der Button grün bleiben (hellgrün bei hover)
+                    button.background_color = (0, 1, 0, 1)
+            else:
+                if button.hovered:
+                    button.hovered = False
+                    # Zustand basierend auf Textfelder prüfen
+                    self.check_text_fields(None, None)
+
+    def check_text_fields(self, instance, value):
+        """Überprüft, ob beide Textfelder ausgefüllt sind, und passt die Button-Farbe an."""
+        username_filled = bool(self.entry_username.text.strip())
+        password_filled = bool(self.entry_password.text.strip())
+        if username_filled and password_filled:
+            self.login_button.disabled = False
+            self.register_button.disabled = False
+            # Setze auf Standard-Grün
+            self.login_button.background_color = (0, 0.7, 0, 1)
+            self.register_button.background_color = (0, 0.7, 0, 1)
+        else:
+            self.login_button.disabled = True
+            self.register_button.disabled = True
+            # Deaktivierte Farbe (grau)
+            self.login_button.background_color = (0.5, 0.5, 0.5, 1)
+            self.register_button.background_color = (0.5, 0.5, 0.5, 1)
+
+    def show_loading_overlay(self, text):
+        """Zeigt das Lade-Overlay mit Progressbar an und blendet den Login-Bereich aus."""
+        self.loading_label.text = text
+        self.progress_bar.value = 0
+        self.loading_overlay.opacity = 1
+        self.layout.opacity = 0
+        self.loading_event = Clock.schedule_interval(self.update_progress, 0.1)
+
+    def update_progress(self, dt):
+        """Aktualisiert den Fortschritt der Progressbar."""
+        if self.progress_bar.value < 100:
+            self.progress_bar.value += 5
+        else:
+            Clock.unschedule(self.loading_event)
+            self.hide_loading_overlay()
+
+    def hide_loading_overlay(self):
+        """Blendet das Lade-Overlay aus und zeigt den Login-Bereich wieder an."""
+        self.loading_overlay.opacity = 0
+        self.layout.opacity = 1
+
     def login(self, instance):
-        """Überprüft die Anmeldedaten und öffnet das Spiel."""
-        username, password = self.entry_username.text.strip(), self.entry_password.text.strip()
+        """Startet den Login-Vorgang mit Ladeanimation."""
+        username = self.entry_username.text.strip()
+        password = self.entry_password.text.strip()
         if not username or not password:
             self.show_popup("Fehler", "Bitte beide Felder ausfüllen!")
             return
 
         login_func = login_user_json if self.use_json else login_user
-        if login_func(username, password):
+        self.show_loading_overlay("Lädt...")
+        # Simuliere den Login-Vorgang (2 Sekunden Verzögerung)
+        Clock.schedule_once(lambda dt: self.process_login(login_func(username, password)), 2)
+
+    def process_login(self, success):
+        """Verarbeitet das Ergebnis des Login-Vorgangs."""
+        self.hide_loading_overlay()
+        if success:
             self.show_popup("Erfolg", "Login erfolgreich!")
-            self.on_success(username)
+            self.on_success(self.entry_username.text.strip())
         else:
             self.show_popup("Fehler", "Falsche Anmeldeinformationen!")
 
     def register(self, instance):
-        """Registriert einen neuen Benutzer."""
-        username, password = self.entry_username.text.strip(), self.entry_password.text.strip()
+        """Startet den Registrierungs-Vorgang mit Ladeanimation."""
+        username = self.entry_username.text.strip()
+        password = self.entry_password.text.strip()
         if not username or not password:
             self.show_popup("Fehler", "Bitte beide Felder ausfüllen!")
             return
 
         register_func = register_user_json if self.use_json else register_user
-        if register_func(username, password):
+        self.show_loading_overlay("Registriert...")
+        # Simuliere die Registrierung (2 Sekunden Verzögerung)
+        Clock.schedule_once(lambda dt: self.process_register(register_func(username, password)), 2)
+
+    def process_register(self, success):
+        """Verarbeitet das Ergebnis der Registrierung."""
+        self.hide_loading_overlay()
+        if success:
             self.show_popup("Erfolg", "Registrierung erfolgreich! Bitte einloggen.")
         else:
             self.show_popup("Fehler", "Benutzername bereits vergeben!")
@@ -119,7 +270,6 @@ class LoginWindow(Screen):
         popup_button = Button(text="OK", font_size=18, size_hint=(1, 0.3))
         popup_layout.add_widget(popup_label)
         popup_layout.add_widget(popup_button)
-
         popup = Popup(title=title, content=popup_layout, size_hint=(0.8, 0.4))
         popup_button.bind(on_press=popup.dismiss)
         popup.open()
