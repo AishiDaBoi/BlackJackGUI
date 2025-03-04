@@ -11,7 +11,7 @@ def register_user(username, password):
     hashed_pw = hash_password(password)
 
     try:
-        cursor.execute("INSERT INTO savefiles (username, password_hash) VALUES (%s, %s)", (username, hash_password(password)))
+        cursor.execute("INSERT INTO savefiles (username, password_hash, highscore, credits) VALUES (%s, %s, %s, %s)", (username, hash_password(password), 0, 1000))
         conn.commit()
         return True
     except:

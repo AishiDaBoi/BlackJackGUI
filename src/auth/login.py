@@ -12,12 +12,14 @@ from kivy.uix.popup import Popup
 from kivy.graphics import Color, Rectangle
 from src.auth.auth import login_user, register_user
 from src.auth.loginViaJson import login_user_json, register_user_json
+from src.game.sounds import sound_manager
 
 class LoginWindow(Screen):
     def __init__(self, on_success, **kwargs):
         super().__init__(**kwargs)
         self.on_success = on_success
         self.use_json = False
+        sound_manager.play_background()
 
         # Hauptlayout zentrieren & begrenzen
         self.layout = BoxLayout(

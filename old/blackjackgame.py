@@ -78,7 +78,7 @@ class BlackjackGame:
         self.player_money += self.current_bet * 2
         self.rounds_won += 1
         self.update_highscore()
-        play_sound("../assets/sounds/Win.mp3")
+        play_sound("../assets/sounds/win.mp3")
 
     def dealer_wins(self):
         """Dealer gewinnt die Runde."""
@@ -95,7 +95,7 @@ class BlackjackGame:
             self.player_money += int(self.current_bet * 2.5)
             self.rounds_won += 1
             self.update_highscore()
-            play_sound("../assets/sounds/Win.mp3")
+            play_sound("../assets/sounds/win.mp3")
             return "Player Blackjack"
         elif dealer_blackjack:
             play_sound("sounds/lose.mp3")

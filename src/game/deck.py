@@ -21,3 +21,6 @@ class Deck:
         path = f"assets/cards/{card['suit']}/{card['rank']}.png"
         image = Image.open(path).resize((71, 96))
         return ImageTk.PhotoImage(image)
+
+    def reset(self):
+        return self.cards[0]
