@@ -20,6 +20,7 @@ class SoundManager:
     def play_background(self):
         if self.background_music:
             self.background_music.loop = True  # Endlosschleife
+            self.background_music.volume = 0.2
             self.background_music.play()
 
     def stop_background(self):
