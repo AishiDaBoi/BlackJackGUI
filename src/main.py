@@ -5,6 +5,8 @@ from game import BlackjackGame
 from game.sounds import MusicChangerWindow
 import logging
 
+from src.auth import get_db_connection
+
 
 class LoginScreen(Screen):
     def __init__(self, **kwargs):

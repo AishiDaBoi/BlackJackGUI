@@ -16,6 +16,12 @@ from src.auth.database import get_db_connection  # MySQL connection
 from src.game.sounds import sound_manager
 import logging
 
+logging.basicConfig(
+    filename='Logging.log',
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    encoding='utf-8',
+    level=logging.INFO
+)
 
 class BlackjackGame(BoxLayout):
     def __init__(self, username, **kwargs):

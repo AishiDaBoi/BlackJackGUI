@@ -1,15 +1,10 @@
 import os
-import mysql.connector
+import sqlite3
 from dotenv import load_dotenv
 
 load_dotenv()
 
 def get_db_connection():
-    """Erstellt eine Verbindung zur MySQL-Datenbank."""
-    return mysql.connector.connect(
-        host=os.getenv("DB_HOST"),
-        user=os.getenv("DB_USER"),
-        password=os.getenv("DB_PASSWORD"),
-        database=os.getenv("DB_NAME"),
-        port=int(os.getenv("DB_PORT"))
-    )
+    """Erstellt eine Verbindung zur SQLite-Datenbank."""
+    db_path = os.getenv("DB_PATH", "database.db")  # Standard ist 'database.db'
+    return sqlite3.connect(db_path)
