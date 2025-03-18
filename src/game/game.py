@@ -225,6 +225,7 @@ class BlackjackGame(BoxLayout):
         # Enable action buttons for the round (except New Round, which remains disabled until round end)
         self.hit_button.disabled = False
         self.stand_button.disabled = False
+        self.double_button.disabled = False
         logger = logging.getLogger(__name__)
         logger.info("New round started")
 
@@ -247,6 +248,9 @@ class BlackjackGame(BoxLayout):
         # If the player's score exceeds 21, end the round immediately
         if self.calculate_score(self.player_hand) > 21:
             self.end_round("Lost: Over 21")
+        elif self.calculate_score(self.player_hand) == 21:
+            self.stand(None)
+            self.show_popup("Blackjack", "User wins!")
 
     def stand(self, instance):
         logger = logging.getLogger(__name__)
@@ -280,17 +284,23 @@ class BlackjackGame(BoxLayout):
     def double_down(self, instance):
         """Double Down: doubles the bet, draws one card, and then automatically ends the round."""
         sound_manager.play_click()
-        if len(self.player_hand) == 2 and self.betting.balance >= self.betting.current_bet:
-            additional_bet = self.betting.current_bet
-            if self.betting.place_bet(additional_bet):
-                self.money_label.text = f"Balance: {self.betting.balance} Chips"
-                self.draw_card(self.player_hand, self.player_grid)
-                # After doubling down, disable further actions and force stand
-                self.hit_button.disabled = True
-                self.stand_button.disabled = True
-                self.double_button.disabled = True
-                self.split_button.disabled = True
-                self.stand(None)  # Automatically execute stand
+
+        if len(self.player_hand) > 2:
+            self.show_popup("Double Down", "Double Down is only allowed with 2 cards.")
+            self.double_button.disabled = True
+        else:
+
+            if len(self.player_hand) == 2 and self.betting.balance >= self.betting.current_bet:
+                additional_bet = self.betting.current_bet
+                if self.betting.place_bet(additional_bet):
+                    self.money_label.text = f"Balance: {self.betting.balance} Chips"
+                    self.draw_card(self.player_hand, self.player_grid)
+                    # After doubling down, disable further actions and force stand
+                    self.hit_button.disabled = True
+                    self.stand_button.disabled = True
+                    self.double_button.disabled = True
+                    self.split_button.disabled = True
+                    self.stand(None)  # Automatically execute stand
 
     def split(self, instance):
         """Split: (Simplified) Shows a popup indicating that the split function is activated."""

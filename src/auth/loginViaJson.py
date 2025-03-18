@@ -26,7 +26,7 @@ def register_user_json(username, password):
     if username in users:
         return False
 
-    users[username] = {"password": bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode(), "highscore": 0}
+    users[username] = {"password": bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode(), "highscore": 0, credits(): "1000"}
     save_users(users)
     return True
 
