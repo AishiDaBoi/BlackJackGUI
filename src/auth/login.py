@@ -1,3 +1,5 @@
+import logging
+
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.uix.progressbar import ProgressBar
@@ -15,6 +17,8 @@ from kivy.graphics import Color, Rectangle
 from src.auth.auth import login_user, register_user
 from src.auth.loginViaJson import login_user_json, register_user_json
 from src.game.sounds import sound_manager
+
+from src.game.sounds import MusicChangerWindow
 
 
 class LoginWindow(Screen):
@@ -83,12 +87,16 @@ class LoginWindow(Screen):
         # Initially, both buttons are disabled and gray.
         self.login_button = self.create_button("Login", self.login)
         self.register_button = self.create_button("Register", self.register)
+        self.openMusicChanger_button = self.create_button("Music Changer", self.openMusicChanger)
         self.login_button.disabled = True
         self.register_button.disabled = True
+        self.openMusicChanger_button.disabled = True
         self.login_button.background_color = (0.5, 0.5, 0.5, 1)
         self.register_button.background_color = (0.5, 0.5, 0.5, 1)
+        self.openMusicChanger_button.background_color = (0.5, 0.5, 0.5, 1)
         self.layout.add_widget(self.login_button)
         self.layout.add_widget(self.register_button)
+        self.layout.add_widget(self.openMusicChanger_button)
 
         # Add the main layout to the screen
         self.add_widget(self.layout)
@@ -229,6 +237,12 @@ class LoginWindow(Screen):
         """Hides the loading overlay and shows the login area again."""
         self.loading_overlay.opacity = 0
         self.layout.opacity = 1
+
+    def openMusicChanger(self, instance):
+        sound_manager.play_click()
+        logger = logging.getLogger(__name__)
+        logger.info("Music Changer opened")
+        self.add_widget(MusicChangerWindow())
 
     def login(self, instance):
         """Starts the login process with a loading animation."""

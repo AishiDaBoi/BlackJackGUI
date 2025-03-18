@@ -14,6 +14,7 @@ from src.game.deck import Deck
 from src.game.betting import BettingSystem
 from src.auth.database import get_db_connection  # MySQL connection
 from src.game.sounds import sound_manager
+import logging
 
 
 class BlackjackGame(BoxLayout):
@@ -60,6 +61,10 @@ class BlackjackGame(BoxLayout):
         cursor.execute("SELECT credits FROM savefiles WHERE username = %s", (username,))
         result = cursor.fetchone()
         conn.close()
+
+        logger = logging.getLogger(__name__)
+        logger.info(f"User {username} loaded credits: {result[0]}")
+
         # Return the retrieved credit balance, or 1000 as default if no record exists
         return result[0] if result else 1000
 
@@ -70,6 +75,8 @@ class BlackjackGame(BoxLayout):
         cursor.execute("UPDATE savefiles SET credits = %s WHERE username = %s",
                        (self.betting.balance, self.username))
         conn.commit()
+        logger = logging.getLogger(__name__)
+        logger.info(f"User {self.username} saved credits: {self.betting.balance}")
         conn.close()
 
     def setup_gui(self):
@@ -129,6 +136,9 @@ class BlackjackGame(BoxLayout):
         self.new_round_button.bind(on_press=self.new_round)
         action_layout.add_widget(self.new_round_button)
 
+        logger = logging.getLogger(__name__)
+        logger.info("BlackjackGame created")
+
         self.add_widget(action_layout)
 
     def load_card_image(self, card):
@@ -139,6 +149,8 @@ class BlackjackGame(BoxLayout):
         filename = f"{rank}.png"
         path = os.path.join("assets", "cards", suit, filename)
         if os.path.exists(path):
+            logger = logging.getLogger(__name__)
+            logger.info(f"Card image loaded: {path}")
             return Image(source=path, size_hint=(None, None), size=(71, 96))
         return None
 
@@ -209,12 +221,26 @@ class BlackjackGame(BoxLayout):
         self.draw_card(self.player_hand, self.player_grid)
         self.draw_card(self.player_hand, self.player_grid)
         self.draw_card(self.dealer_hand, self.dealer_grid)
-        self.draw_card(self.dealer_hand, self.dealer_grid)
+        self.draw_hidden_card(self.dealer_hand, self.dealer_grid)
         # Enable action buttons for the round (except New Round, which remains disabled until round end)
         self.hit_button.disabled = False
         self.stand_button.disabled = False
+        logger = logging.getLogger(__name__)
+        logger.info("New round started")
+
+
+    def draw_hidden_card(self, hand, grid):
+        """Draws a hidden card for the dealer."""
+        card = self.deck.draw_card()
+        hand.append(card)
+        img = Image(source="assets/cards/cardback/back.png", size_hint=(None, None), size=(71, 96))
+        self.dealer_hidden_img = img
+        grid.add_widget(img)
+
 
     def hit(self, instance):
+        logger = logging.getLogger(__name__)
+        logger.info("Player hits")
         """Processes the player's action to draw a card."""
         sound_manager.play_click()
         self.draw_card(self.player_hand, self.player_grid)
@@ -223,6 +249,8 @@ class BlackjackGame(BoxLayout):
             self.end_round("Lost: Over 21")
 
     def stand(self, instance):
+        logger = logging.getLogger(__name__)
+        logger.info("Player stands")
         """Processes the stand action: reveals the dealer's hidden card and plays out the dealer's hand."""
         sound_manager.play_click()
         # Reveal the dealer's hidden card if applicable
