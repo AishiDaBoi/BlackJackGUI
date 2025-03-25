@@ -60,30 +60,30 @@ class BlackjackGame(BoxLayout):
         self.rect.size = self.size
 
     def load_credits_from_db(self, username):
-        """Loads the player's credit balance from the MySQL database."""
-        self.show_popup("Loading Credits", "Retrieving credits from database...")
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT credits FROM savefiles WHERE username = %s", (username,))
-        result = cursor.fetchone()
-        conn.close()
-
-        logger = logging.getLogger(__name__)
-        logger.info(f"User {username} loaded credits: {result[0]}")
-
-        # Return the retrieved credit balance, or 1000 as default if no record exists
-        return result[0] if result else 1000
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT credits FROM users WHERE username = ?",
+                (username,)
+            )
+            result = cursor.fetchone()
+            return result['credits'] if result else 1000
+        finally:
+            conn.close()
 
     def save_credits_to_db(self):
-        """Saves the player's current credit balance to the database."""
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE savefiles SET credits = %s WHERE username = %s",
-                       (self.betting.balance, self.username))
-        conn.commit()
-        logger = logging.getLogger(__name__)
-        logger.info(f"User {self.username} saved credits: {self.betting.balance}")
-        conn.close()
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE users SET credits = ? WHERE username = ?",
+                (self.betting.balance, self.username)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
 
     def setup_gui(self):
         """Initializes the graphical user interface."""
