@@ -29,3 +29,6 @@ class Deck:
 
         image = Image.open(assets_path).resize((71, 96))
         return ImageTk.PhotoImage(image)
+
+    def reset(self):
+        return self.cards[0]

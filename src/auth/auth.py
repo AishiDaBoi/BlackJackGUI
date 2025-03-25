@@ -1,45 +1,43 @@
 import bcrypt
-import mysql.connector
-
 from .database import get_db_connection
+import sqlite3
 
 
 def hash_password(password):
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
-def register_user(username, password):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    hashed_pw = hash_password(password)
 
+def register_user(username, password):
     try:
+        hashed_password = hash_password(password)
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
         cursor.execute(
-            "INSERT INTO savefiles (username, password_hash, highscore, credits) VALUES (%s, %s, %s, %s)",
-            (username, hashed_pw, 0, 1000)  # Standardwerte: highscore = 0, credits = 1000
+            "INSERT INTO users (username, password_hash) VALUES (?, ?)",
+            (username, hashed_password)
         )
         conn.commit()
         return True
-    except mysql.connector.Error as err:  # Spezifische Fehlerbehandlung
-        print(f"Fehler bei der Registrierung: {err}")
-        return False
+    except sqlite3.IntegrityError:
+        return False  # Username already exists
     finally:
-        cursor.close()
         conn.close()
 
-def login_user(username, password):
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
 
+def login_user(username, password):
     try:
-        cursor.execute("SELECT * FROM savefiles WHERE username = %s", (username,))
+        conn = get_db_connection()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT password_hash FROM users WHERE username = ?",
+            (username,)
+        )
         user = cursor.fetchone()
 
-        if user and bcrypt.checkpw(password.encode(), user["password_hash"].encode()):
+        if user and bcrypt.checkpw(password.encode(), user['password_hash'].encode()):
             return True
         return False
-    except mysql.connector.Error as err:
-        print(f"Fehler beim Login: {err}")
-        return False
     finally:
-        cursor.close()
         conn.close()

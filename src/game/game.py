@@ -1,284 +1,407 @@
-import tkinter as tk
-from tkinter import messagebox, simpledialog
 import os
-from PIL import Image, ImageTk
+from kivy.app import App
+from kivy.uix.boxlayout import BoxLayout
+from kivy.uix.label import Label
+from kivy.uix.button import Button
+from kivy.uix.image import Image
+from kivy.uix.textinput import TextInput
+from kivy.uix.gridlayout import GridLayout
+from kivy.uix.popup import Popup
+from kivy.core.window import Window
+from kivy.clock import Clock
+
 from src.game.deck import Deck
 from src.game.betting import BettingSystem
-from src.game.stats import get_highscore, update_highscore, get_balance, update_balance
+from src.auth.database import get_db_connection  # MySQL connection
+from src.game.sounds import sound_manager
+import logging
 
+logging.basicConfig(
+    filename='Logging.log',
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    encoding='utf-8',
+    level=logging.INFO
+)
 
-def calculate_hand_value(hand):
-    value = 0
-    aces = 0
-    for card in hand:
-        if card['rank'] in ['Bube', 'Dame', 'König']:
-            value += 10
-        elif card['rank'] == 'Ass':
-            value += 11
-            aces += 1
-        else:
-            value += int(card['rank'])
-
-    # Reduziere Asser von 11 auf 1, wenn der Wert über 21 liegt
-    while value > 21 and aces > 0:
-        value -= 10
-        aces -= 1
-    return value
-
-
-class BlackjackGame:
-    def __init__(self, master, username):
-        self.master = master
+class BlackjackGame(BoxLayout):
+    def __init__(self, username, **kwargs):
+        super().__init__(**kwargs)
+        # Store the username and load the player's credits from the database
         self.username = username
+        self.credits = self.load_credits_from_db(username)
+        # Initialize the deck and betting system with the loaded credits
         self.deck = Deck()
-        self.betting = BettingSystem(get_balance(username))  # Guthaben aus der DB laden
-        self.player_hand = []
-        self.dealer_hand = []
-        self.rounds_won = 0
-        self.highscore_value = get_highscore(username) or 0
-        self.card_images = {}
-        self.current_bet = 0
+        self.betting = BettingSystem(self.credits)
+        self.player_hand = []  # List to store player's cards
+        self.dealer_hand = []  # List to store dealer's cards
+        self.split_mode = False  # For future split logic
 
-        # Fenster borderless fullscreen windowed machen
-        self.master.title("Blackjack")
-        self.master.attributes("-fullscreen", True)  # Fenster im Fullscreen-Modus
-        self.master.configure(bg="green")
-        self.master.resizable(False, False)
+        # Bind the window close event to the on_close method
+        Window.bind(on_request_close=self.on_close)
 
-        # Speichere Daten, wenn das Fenster geschlossen wird
-        self.master.protocol("WM_DELETE_WINDOW", self.on_close)
+        # Set layout properties
+        self.orientation = 'vertical'
+        self.padding = 10
+        self.spacing = 10
 
+        # Set background (dark green) using a canvas rectangle
+        with self.canvas.before:
+            from kivy.graphics import Color, Rectangle
+            Color(0, 0.2, 0, 1)
+            self.rect = Rectangle(pos=self.pos, size=self.size)
+        self.bind(pos=self.update_rect, size=self.update_rect)
+
+        # Build the UI
         self.setup_gui()
-        self.start_round()
 
-    def player_wins_round(self):
-        self.rounds_won += 1
-        if self.rounds_won > self.highscore_value:
-            self.highscore_value = self.rounds_won
-            update_highscore(self.username, self.rounds_won)
+    def update_rect(self, *args):
+        """Updates the background rectangle when the window resizes."""
+        self.rect.pos = self.pos
+        self.rect.size = self.size
+
+    def load_credits_from_db(self, username):
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT credits FROM users WHERE username = ?",
+                (username,)
+            )
+            result = cursor.fetchone()
+            return result['credits'] if result else 1000
+        finally:
+            conn.close()
+
+    def save_credits_to_db(self):
+        try:
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE users SET credits = ? WHERE username = ?",
+                (self.betting.balance, self.username)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+
+    def setup_gui(self):
+        """Initializes the graphical user interface."""
+        # Header: Display player's name and balance (always visible)
+        header = BoxLayout(orientation='horizontal', size_hint=(1, 0.1), padding=10, spacing=10)
+        header.add_widget(Label(text=f"Player: {self.username}", font_size=24, color=(1, 1, 1, 1)))
+        self.money_label = Label(text=f"Balance: {self.betting.balance} Chips", font_size=18, color=(1, 1, 1, 1))
+        header.add_widget(self.money_label)
+        self.add_widget(header)
+
+        # Dealer area: Section to display dealer's cards
+        dealer_layout = BoxLayout(orientation='vertical', size_hint=(1, 0.3), padding=10, spacing=5)
+        dealer_layout.add_widget(Label(text="Dealer", font_size=18, color=(1, 1, 1, 1)))
+        self.dealer_grid = GridLayout(cols=5, spacing=5, size_hint_y=None, height=150)
+        dealer_layout.add_widget(self.dealer_grid)
+        self.add_widget(dealer_layout)
+
+        # Player area: Section to display player's cards
+        player_layout = BoxLayout(orientation='vertical', size_hint=(1, 0.3), padding=10, spacing=5)
+        player_layout.add_widget(Label(text="Player", font_size=18, color=(1, 1, 1, 1)))
+        self.player_grid = GridLayout(cols=5, spacing=5, size_hint_y=None, height=150)
+        player_layout.add_widget(self.player_grid)
+        self.add_widget(player_layout)
+
+        # Betting input: Allows player to enter a bet and choose "All-In"
+        bet_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.1), padding=10, spacing=10)
+        self.bet_entry = TextInput(hint_text="Bet Amount", font_size=18, multiline=False, size_hint=(0.3, 1))
+        bet_layout.add_widget(self.bet_entry)
+        self.bet_button = Button(text="Place Bet", font_size=18, size_hint=(0.3, 1))
+        self.bet_button.bind(on_press=self.set_bet)
+        bet_layout.add_widget(self.bet_button)
+        self.all_in_button = Button(text="All-In", font_size=18, size_hint=(0.3, 1))
+        self.all_in_button.bind(on_press=self.all_in)
+        bet_layout.add_widget(self.all_in_button)
+        self.add_widget(bet_layout)
+
+        # Action buttons: Hit, Stand, Double Down, Split, New Round
+        action_layout = BoxLayout(orientation='horizontal', size_hint=(1, 0.2), padding=10, spacing=10)
+        self.hit_button = Button(text="Hit", font_size=18, size_hint=(0.2, 1), disabled=True)
+        self.hit_button.bind(on_press=self.hit)
+        action_layout.add_widget(self.hit_button)
+
+        self.stand_button = Button(text="Stand", font_size=18, size_hint=(0.2, 1), disabled=True)
+        self.stand_button.bind(on_press=self.stand)
+        action_layout.add_widget(self.stand_button)
+
+        self.double_button = Button(text="Double Down", font_size=18, size_hint=(0.2, 1), disabled=True)
+        self.double_button.bind(on_press=self.double_down)
+        action_layout.add_widget(self.double_button)
+
+        self.split_button = Button(text="Split", font_size=18, size_hint=(0.2, 1), disabled=True)
+        self.split_button.bind(on_press=self.split)
+        action_layout.add_widget(self.split_button)
+
+        self.new_round_button = Button(text="New Round", font_size=18, size_hint=(0.2, 1), disabled=True)
+        self.new_round_button.bind(on_press=self.new_round)
+        action_layout.add_widget(self.new_round_button)
+
+        logger = logging.getLogger(__name__)
+        logger.info("BlackjackGame created")
+
+        self.add_widget(action_layout)
 
     def load_card_image(self, card):
-        base_path = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(base_path, "..", "..", "assets", "cards", card['suit'], f"{card['rank']}.png")
-        path = os.path.abspath(path)
+        """Loads the corresponding card image based on card suit and rank."""
+        suit_translation = {"Hearts": "Hearts", "Diamonds": "Diamonds", "Spades": "Spades", "Clubs": "Clubs"}
+        suit = suit_translation.get(card['suit'], card['suit'])
+        rank = card['rank']
+        filename = f"{rank}.png"
+        path = os.path.join("assets", "cards", suit, filename)
+        if os.path.exists(path):
+            logger = logging.getLogger(__name__)
+            logger.info(f"Card image loaded: {path}")
+            return Image(source=path, size_hint=(None, None), size=(71, 96))
+        return None
 
-        print(f"Versuche, Bild zu laden: {path}")  # Debugging-Ausgabe
-
-        if not os.path.exists(path):
-            print(f"Fehler: {path} nicht gefunden!")
-            return None
-
-        if path not in self.card_images:
-            try:
-                image = Image.open(path).resize((100, 140))  # Größere Karten
-                self.card_images[path] = ImageTk.PhotoImage(image)
-                print(f"Bild erfolgreich geladen: {path}")  # Debugging-Ausgabe
-            except Exception as e:
-                print(f"Fehler beim Laden des Bildes: {e}")
-                return None
-        return self.card_images[path]
-
-    def draw_card(self, hand, x, y, face_up=True):
+    def draw_card(self, hand, grid):
+        """Draws a card from the deck, adds it to the specified hand, and displays it in the grid."""
         if self.deck.cards:
             card = self.deck.draw_card()
             hand.append(card)
-            if face_up:
-                img = self.load_card_image(card)
-            else:
-                img = self.load_card_image({'suit': 'cardback', 'rank': 'back'})  # Verdeckte Karte
+            img = self.load_card_image(card)
             if img:
-                print(f"Zeichne Karte {card} an Position ({x}, {y})")  # Debugging-Ausgabe
-                self.canvas.create_image(x, y, image=img, anchor=tk.NW)
-                self.master.update()
-            else:
-                print(f"Fehler: Bild für Karte {card} konnte nicht geladen werden!")
-        else:
-            print("Fehler: Keine Karten mehr im Deck!")
+                grid.add_widget(img)
+
+    def calculate_score(self, hand):
+        """Calculates the score of a hand of cards."""
+        # Sum up the value of all cards in the hand
+        score = sum(card['value'] for card in hand)
+        # Count the number of aces in the hand (represented as 'Ass' in the original data)
+        num_aces = sum(1 for card in hand if card['rank'] == 'Ass')
+        # Adjust score if score exceeds 21 and there are aces to adjust
+        while score > 21 and num_aces:
+            score -= 10
+            num_aces -= 1
+        return score
+
+    def set_bet(self, instance):
+        """Handles bet placement by the player."""
+        sound_manager.play_click()
+        try:
+            bet = int(self.bet_entry.text)
+            # If the bet is successfully placed, start the round
+            if self.betting.place_bet(bet):
+                self.start_round()
+                self.money_label.text = f"Balance: {self.betting.balance} Chips"
+                # Disable bet input area as bet has been set
+                self.bet_entry.disabled = True
+                self.bet_button.disabled = True
+                self.all_in_button.disabled = True
+        except ValueError:
+            # If input is not a valid integer, ignore the bet
+            pass
+
+    def all_in(self, instance):
+        """Places an all-in bet with the player's current balance."""
+        sound_manager.play_click()
+        all_in_amount = self.betting.balance
+        if all_in_amount > 0 and self.betting.place_bet(all_in_amount):
+            self.start_round()
+            self.money_label.text = f"Balance: {self.betting.balance} Chips"
+            self.bet_entry.disabled = True
+            self.bet_button.disabled = True
+            self.all_in_button.disabled = True
 
     def start_round(self):
-        """Startet eine neue Runde."""
+        """Starts a new round by dealing cards to both player and dealer."""
+        sound_manager.play_click()
+        # Reset both hands
         self.player_hand = []
         self.dealer_hand = []
-        self.canvas.delete("all")
-        self.deck = Deck()  # Neues Deck mischen
+        # Clear card display areas
+        self.dealer_grid.clear_widgets()
+        self.player_grid.clear_widgets()
+        # Reset the deck if possible, otherwise instantiate a new deck
+        if hasattr(self.deck, 'reset'):
+            self.deck.reset()
+        else:
+            self.deck = Deck()
+        # Deal two cards to player and dealer; dealer's second card remains hidden initially
+        self.draw_card(self.player_hand, self.player_grid)
+        self.draw_card(self.player_hand, self.player_grid)
+        self.draw_card(self.dealer_hand, self.dealer_grid)
+        self.draw_hidden_card(self.dealer_hand, self.dealer_grid)
+        # Enable action buttons for the round (except New Round, which remains disabled until round end)
+        self.hit_button.disabled = False
+        self.stand_button.disabled = False
+        self.double_button.disabled = False
+        logger = logging.getLogger(__name__)
+        logger.info("New round started")
 
-        # Manuellen Einsatz setzen
-        self.current_bet = self.place_bet()
-        if self.current_bet == 0:  # Wenn der Spieler keinen Einsatz setzt, beende die Runde
+
+    def draw_hidden_card(self, hand, grid):
+        """Draws a hidden card for the dealer."""
+        card = self.deck.draw_card()
+        hand.append(card)
+        img = Image(source="assets/cards/cardback/back.png", size_hint=(None, None), size=(71, 96))
+        self.dealer_hidden_img = img
+        grid.add_widget(img)
+
+
+    def hit(self, instance):
+        logger = logging.getLogger(__name__)
+        logger.info("Player hits")
+        """Processes the player's action to draw a card."""
+        sound_manager.play_click()
+        self.draw_card(self.player_hand, self.player_grid)
+        # If the player's score exceeds 21, end the round immediately
+        if self.calculate_score(self.player_hand) > 21:
+            self.end_round("Lost: Over 21")
+        elif self.calculate_score(self.player_hand) == 21:
+            self.stand(None)
+            self.show_popup("Blackjack", "User wins!")
+
+    def stand(self, instance):
+        logger = logging.getLogger(__name__)
+        logger.info("Player stands")
+        """Processes the stand action: reveals the dealer's hidden card and plays out the dealer's hand."""
+        sound_manager.play_click()
+        # Reveal the dealer's hidden card if applicable
+        if hasattr(self, 'dealer_hidden_img'):
+            self.dealer_grid.remove_widget(self.dealer_hidden_img)
+            actual_img = self.load_card_image(self.dealer_hand[1])
+            self.dealer_grid.add_widget(actual_img, index=1)
+            del self.dealer_hidden_img
+        # Dealer draws cards until reaching a minimum score of 17
+        while self.calculate_score(self.dealer_hand) < 17:
+            self.draw_card(self.dealer_hand, self.dealer_grid)
+        player_score = self.calculate_score(self.player_hand)
+        dealer_score = self.calculate_score(self.dealer_hand)
+        # Determine outcome based on scores
+        if player_score > 21:
+            result = "Lost: Over 21"
+        elif dealer_score > 21 or player_score > dealer_score:
+            result = f"Won: {player_score} vs. {dealer_score}"
+            self.betting.win_bet()
+        elif player_score == dealer_score:
+            result = f"Push: Tied at {player_score}"
+            self.betting.push_bet()
+        else:
+            result = f"Lost: {player_score} vs. {dealer_score}"
+        self.end_round(result)
+
+    def double_down(self, instance):
+        """Double Down: doubles the bet, draws one card, and then automatically ends the round."""
+        sound_manager.play_click()
+
+        if len(self.player_hand) > 2:
+            self.show_popup("Double Down", "Double Down is only allowed with 2 cards.")
+            self.double_button.disabled = True
+        else:
+
+            if len(self.player_hand) == 2 and self.betting.balance >= self.betting.current_bet:
+                additional_bet = self.betting.current_bet
+                if self.betting.place_bet(additional_bet):
+                    self.money_label.text = f"Balance: {self.betting.balance} Chips"
+                    self.draw_card(self.player_hand, self.player_grid)
+                    # After doubling down, disable further actions and force stand
+                    self.hit_button.disabled = True
+                    self.stand_button.disabled = True
+                    self.double_button.disabled = True
+                    self.split_button.disabled = True
+                    self.stand(None)  # Automatically execute stand
+
+    def split(self, instance):
+        """Split: (Simplified) Shows a popup indicating that the split function is activated."""
+        sound_manager.play_click()
+        if len(self.player_hand) == 2 and self.player_hand[0]['rank'] == self.player_hand[1]['rank']:
+            self.show_popup("Split", "Split function activated (implementation pending)")
+            self.split_button.disabled = True
+
+    def new_round(self, instance):
+        """Prepares the UI for a new round and disables the 'New Round' button until the round ends.
+        Clears card display areas so that cards are only visible after a new bet is placed."""
+        # Disable the New Round button to prevent multiple rounds from starting concurrently
+        self.new_round_button.disabled = True
+        # Clear card display areas
+        self.dealer_grid.clear_widgets()
+        self.player_grid.clear_widgets()
+        # Re-enable the bet input area for a new bet
+        self.bet_entry.disabled = False
+        self.bet_button.disabled = False
+        self.all_in_button.disabled = False
+        self.bet_entry.text = ""
+        # Reset the current bet value
+        self.betting.current_bet = 0
+
+    def end_round(self, result):
+        """Ends the round by displaying the result popup and enabling the 'New Round' button."""
+        self.hit_button.disabled = True
+        self.stand_button.disabled = True
+        self.double_button.disabled = True
+        self.split_button.disabled = True
+        self.new_round_button.disabled = False
+        self.money_label.text = f"Balance: {self.betting.balance} Chips"
+        # Reset the current bet value
+        self.betting.current_bet = 0
+        self.show_popup("Result", result)
+
+    def show_popup(self, title, message):
+        """Creates and displays a popup with the given title and message."""
+        popup_layout = BoxLayout(orientation='vertical', padding=15, spacing=10)
+        popup_label = Label(text=message, font_size=18, color=(1, 1, 1, 1))
+        popup_button = Button(text="OK", font_size=18, size_hint=(1, 0.3))
+        popup_layout.add_widget(popup_label)
+        popup_layout.add_widget(popup_button)
+        popup = Popup(title=title, content=popup_layout, size_hint=(0.8, 0.4))
+        popup_button.bind(on_press=popup.dismiss)
+        sound_manager.play_popup()
+        popup.open()
+
+    def on_close(self, *args):
+        """Called when the user closes the window via the title bar.
+        Displays a loading popup, saves credits in the background, then shows a confirmation popup."""
+        # Create a loading popup indicating that saving is in progress
+        loading_layout = BoxLayout(orientation='vertical', padding=15, spacing=10)
+        loading_label = Label(text="Saving in progress...", font_size=18, color=(1, 1, 1, 1))
+        loading_layout.add_widget(loading_label)
+        self.loading_popup = Popup(title="Please Wait", content=loading_layout, size_hint=(0.6, 0.3),
+                                   auto_dismiss=False)
+        self.loading_popup.open()
+        # Schedule the save_and_exit function to run after a short delay (to prevent UI freezing)
+        Clock.schedule_once(self.save_and_exit, 1.5)
+        return True  # Prevent the window from closing immediately
+
+    def save_and_exit(self, dt):
+        """Saves credits to the database and then displays a confirmation popup before closing the app."""
+        try:
+            self.save_credits_to_db()
+            print("Credits successfully saved!")  # Debug output
+        except Exception as e:
+            print(f"Error saving credits: {e}")
+            self.loading_popup.dismiss()
+            self.show_popup("Error", "Saving failed. Please try again.")
             return
+        # Dismiss the loading popup
+        self.loading_popup.dismiss()
+        # Create a confirmation popup informing the user that credits are saved and the app will close
+        popup_layout = BoxLayout(orientation='vertical', padding=15, spacing=10)
+        popup_label = Label(text="Credits saved! The game will now close.", font_size=18, color=(1, 1, 1, 1))
+        popup_button = Button(text="OK", font_size=18, size_hint=(1, 0.3))
+        popup_layout.add_widget(popup_label)
+        popup_layout.add_widget(popup_button)
+        confirm_popup = Popup(title="Saving Complete", content=popup_layout, size_hint=(0.8, 0.4), auto_dismiss=False)
 
-        # Karten austeilen
-        self.draw_card(self.player_hand, 100, 400)  # Erste Karte für den Spieler
-        self.draw_card(self.player_hand, 220, 400)  # Zweite Karte für den Spieler
-        self.draw_card(self.dealer_hand, 100, 100, face_up=True)  # Erste Karte für den Dealer (aufgedeckt)
-        self.draw_card(self.dealer_hand, 220, 100, face_up=False)  # Zweite Karte für den Dealer (verdeckt)
+        def close_app(instance):
+            confirm_popup.dismiss()
+            App.get_running_app().stop()
 
-        # Überprüfe, ob der Dealer einen Blackjack hat
-        dealer_value = calculate_hand_value(self.dealer_hand)
-        if dealer_value == 21:
-            # Decke die verdeckte Karte des Dealers auf
-            self.canvas.delete("all")
-            for i, card in enumerate(self.dealer_hand):
-                self.draw_card(self.dealer_hand, 100 + i * 120, 100, face_up=True)
+        popup_button.bind(on_press=close_app)
+        confirm_popup.open()
 
-            # Überprüfe, ob der Spieler auch einen Blackjack hat
-            player_value = calculate_hand_value(self.player_hand)
-            if player_value == 21:
-                self.end_round("It's a tie!")  # Unentschieden
-            else:
-                self.end_round("Dealer wins with Blackjack!")  # Dealer gewinnt mit Blackjack
-            return
 
-        # Aktiviere Buttons
-        self.hit_button.config(state=tk.NORMAL)
-        self.stand_button.config(state=tk.NORMAL)
-        self.double_button.config(state=tk.NORMAL)
-        self.surrender_button.config(state=tk.NORMAL)
-        self.new_round_button.config(state=tk.DISABLED)
-    def place_bet(self):
-        """Fragt den Spieler nach dem Einsatz."""
-        while True:
-            bet = simpledialog.askinteger("Einsatz", "Setzen Sie Ihren Einsatz (1 - {}):".format(self.betting.balance), minvalue=1, maxvalue=self.betting.balance)
-            if bet is None:  # Wenn der Benutzer das Fenster schließt
-                messagebox.showerror("Fehler", "Bitte setzen Sie einen Einsatz!")
-            elif self.betting.place_bet(bet):
-                self.balance_label.config(text=f"Guthaben: {self.betting.balance}")
-                return bet
-            else:
-                messagebox.showerror("Fehler", "Ungültiger Einsatz!")
+class BlackjackApp(App):
+    def build(self):
+        # Replace "Player" with the actual login name if needed
+        return BlackjackGame(username="Player")
 
-    def setup_gui(self):
-        """Erstellt das GUI für das Spiel."""
-        self.canvas = tk.Canvas(self.master, width=1200, height=800, bg="green", highlightthickness=0)
-        self.canvas.pack()
 
-        # Buttons mit größerer Schrift und Abmessungen
-        button_width = 15
-        button_font = ("Helvetica", 18)
-        self.hit_button = tk.Button(self.master, text="Hit", font=button_font, width=button_width, command=self.hit)
-        self.hit_button.place(x=50, y=650)
-
-        self.stand_button = tk.Button(self.master, text="Stand", font=button_font, width=button_width,
-                                      command=self.stand)
-        self.stand_button.place(x=300, y=650)
-
-        self.double_button = tk.Button(self.master, text="Double", font=button_font, width=button_width,
-                                       command=self.double)
-        self.double_button.place(x=550, y=650)
-
-        self.surrender_button = tk.Button(self.master, text="Surrender", font=button_font, width=button_width,
-                                          command=self.surrender)
-        self.surrender_button.place(x=800, y=650)
-
-        self.new_round_button = tk.Button(self.master, text="Neue Runde", font=button_font, width=button_width,
-                                          command=self.start_round)
-        self.new_round_button.place(x=1050, y=650)
-
-        # Labels mit größerer Schrift
-        label_font = ("Helvetica", 20)
-        self.player_label = tk.Label(self.master, text=f"Spieler: {self.username}", font=label_font, bg="green",
-                                     fg="white")
-        self.player_label.place(x=50, y=20)
-
-        self.balance_label = tk.Label(self.master, text=f"Guthaben: {self.betting.balance}", font=label_font,
-                                      bg="green", fg="white")
-        self.balance_label.place(x=50, y=60)
-
-        self.highscore_label = tk.Label(self.master, text=f"Highscore: {self.highscore_value}", font=label_font,
-                                        bg="green", fg="white")
-        self.highscore_label.place(x=50, y=100)
-
-    def hit(self):
-        """Zieht eine zusätzliche Karte für den Spieler."""
-        if len(self.player_hand) < 5:  # Begrenze die Anzahl der Karten auf 5
-            self.draw_card(self.player_hand, 100 + len(self.player_hand) * 120, 400)
-            player_value = calculate_hand_value(self.player_hand)
-            if player_value > 21:
-                self.end_round("Dealer wins!")
-
-    def stand(self):
-        """Beendet den Zug des Spielers und lässt den Dealer ziehen."""
-        # Decke die verdeckte Karte des Dealers auf
-        self.canvas.delete("all")
-        for i, card in enumerate(self.dealer_hand):
-            self.draw_card(self.dealer_hand, 100 + i * 120, 100, face_up=True)
-
-        # Dealer-Wert berechnen
-        dealer_value = calculate_hand_value(self.dealer_hand)
-        print(f"[DEBUG] Dealer-Wert vor dem Ziehen: {dealer_value}")
-
-        # Dealer zieht Karten, bis er mindestens 17 Punkte hat
-        while dealer_value < 17:
-            if not self.deck.cards:
-                print("[ERROR] Keine Karten mehr im Deck!")
-                break
-
-            # Neue Karte ziehen und dem Dealer hinzufügen
-            new_card = self.deck.draw_card()
-            if new_card is None:
-                break
-
-            self.dealer_hand.append(new_card)
-            self.draw_card(self.dealer_hand, 100 + (len(self.dealer_hand) - 1) * 120, 100, face_up=True)
-
-            # Dealer-Wert NEU berechnen
-            dealer_value = calculate_hand_value(self.dealer_hand)
-            print(f"[DEBUG] Dealer zieht {new_card['rank']} {new_card['suit']}. Neuer Wert: {dealer_value}")
-
-        # Runde beenden
-        self.end_round()
-
-    def double(self):
-        """Verdoppelt den Einsatz und zieht eine zusätzliche Karte."""
-        if self.betting.place_bet(self.current_bet):  # Verdopple den Einsatz
-            self.draw_card(self.player_hand, 100 + len(self.player_hand) * 120, 400)
-            self.balance_label.config(text=f"Guthaben: {self.betting.balance}")  # Aktualisiere das Guthaben-Label
-            self.stand()  # Beende den Zug des Spielers nach dem Double
-
-    def surrender(self):
-        """Beendet die Runde und gibt dem Spieler die Hälfte des Einsatzes zurück."""
-        self.betting.push_bet()  # Gib die Hälfte des Einsatzes zurück
-        self.balance_label.config(text=f"Guthaben: {self.betting.balance}")  # Aktualisiere das Guthaben-Label
-        self.end_round("Spieler gibt auf!")
-
-    def end_round(self, result=None):
-        """Beendet die Runde und zeigt das Ergebnis an."""
-        if not result:
-            player_value = calculate_hand_value(self.player_hand)
-            dealer_value = calculate_hand_value(self.dealer_hand)
-            if player_value > 21:
-                result = "Dealer wins!"
-            elif dealer_value > 21:
-                result = "Player wins!"
-                self.betting.win_bet()  # Spieler gewinnt den Einsatz
-            elif player_value > dealer_value:
-                result = "Player wins!"
-                self.betting.win_bet()  # Spieler gewinnt den Einsatz
-            elif dealer_value > player_value:
-                result = "Dealer wins!"
-            else:
-                result = "It's a tie!"
-                self.betting.push_bet()  # Unentschieden: Einsatz wird zurückgegeben
-
-        # Aktualisiere das Guthaben-Label
-        self.balance_label.config(text=f"Guthaben: {self.betting.balance}")
-
-        # Speichere Guthaben und Highscore in der Datenbank
-        update_balance(self.username, self.betting.balance)
-        update_highscore(self.username, self.highscore_value)
-
-        # Zeige das Ergebnis an
-        messagebox.showinfo("Round Over", result)
-
-        # Deaktiviere Buttons und aktiviere den "Neue Runde"-Button
-        self.hit_button.config(state=tk.DISABLED)
-        self.stand_button.config(state=tk.DISABLED)
-        self.double_button.config(state=tk.DISABLED)
-        self.surrender_button.config(state=tk.DISABLED)
-        self.new_round_button.config(state=tk.NORMAL)
-
-    def on_close(self):
-        """Speichert Daten und schließt das Fenster."""
-        update_balance(self.username, self.betting.balance)
-        update_highscore(self.username, self.highscore_value)
-        self.master.destroy()
+if __name__ == "__main__":
+    BlackjackApp().run()
