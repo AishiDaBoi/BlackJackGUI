@@ -13,7 +13,6 @@ from kivy.uix.screenmanager import Screen
 from kivy.uix.popup import Popup
 from kivy.graphics import Color, Rectangle
 
-# Import authentication functions (for MySQL and JSON-based login/registration)
 from src.auth.auth import login_user, register_user
 from src.game.sounds import sound_manager
 
