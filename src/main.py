@@ -1,11 +1,9 @@
 from kivy.app import App
 from kivy.uix.screenmanager import ScreenManager, Screen
-from auth import LoginWindow, login_user
+from auth import LoginWindow
 from game import BlackjackGame
 from game.sounds import MusicChangerWindow
 import logging
-
-from src.auth import get_db_connection
 
 
 class LoginScreen(Screen):

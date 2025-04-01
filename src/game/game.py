@@ -256,7 +256,7 @@ class BlackjackGame(BoxLayout):
             self.end_round("Lost: Over 21")
         elif self.calculate_score(self.player_hand) == 21:
             self.stand(None)
-            self.show_popup("Blackjack", "User wins!")
+
 
     def stand(self, instance):
         logger = logging.getLogger(__name__)

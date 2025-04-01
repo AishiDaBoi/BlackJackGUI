@@ -15,7 +15,6 @@ from kivy.graphics import Color, Rectangle
 
 # Import authentication functions (for MySQL and JSON-based login/registration)
 from src.auth.auth import login_user, register_user
-from src.auth.loginViaJson import login_user_json, register_user_json
 from src.game.sounds import sound_manager
 
 from src.game.sounds import MusicChangerWindow
@@ -70,8 +69,7 @@ class LoginWindow(Screen):
         self.entry_username.bind(text=self.check_text_fields)
         self.entry_password.bind(text=self.check_text_fields)
 
-        # Add a checkbox to choose JSON-based login instead of MySQL
-        self.layout.add_widget(self.create_checkbox("Use JSON instead of MySQL", self.on_json_checkbox_active))
+
 
         # Button to use default user credentials
         self.default_user_button = Button(
@@ -254,7 +252,7 @@ class LoginWindow(Screen):
             return
 
         # Choose the login function based on the checkbox setting
-        login_func = login_user_json if self.use_json else login_user
+        login_func = login_user
         self.show_loading_overlay("Loading...")
         # Simulate a login delay (2 seconds) and then process the login result
         Clock.schedule_once(lambda dt: self.process_login(login_func(username, password)), 2)
@@ -277,7 +275,7 @@ class LoginWindow(Screen):
             return
 
         # Choose the registration function based on the checkbox setting
-        register_func = register_user_json if self.use_json else register_user
+        register_func = register_user
         self.show_loading_overlay("Registering...")
         # Simulate registration delay (2 seconds) and then process the registration result
         Clock.schedule_once(lambda dt: self.process_register(register_func(username, password)), 2)
